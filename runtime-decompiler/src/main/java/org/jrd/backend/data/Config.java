@@ -12,9 +12,6 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Collections;
 import com.google.gson.Gson;
-import org.jrd.backend.decompiling.ExpandableUrl;
-
-import static org.jrd.backend.decompiling.ExpandableUrl.isOsWindows;
 
 
 /**
@@ -31,8 +28,8 @@ public class Config {
 
     private Config() {
         String parentDir = Directories.getConfigDirectory();
-        configFilePath = parentDir + File.separator + "config.json";
-        legacyConfigFilePath = parentDir + File.separator + "config.cfg";
+        configFilePath = parentDir + "/config.json";
+        legacyConfigFilePath = parentDir + "/config.cfg";
         gson = new Gson();
 
         try {
@@ -49,21 +46,13 @@ public class Config {
         return config;
     }
 
-    public String getAgentRawPath() {
-        return ExpandableUrl.createFromPath(configMap.get("AGENT_PATH")).getRawPath();
-    }
-
-    public String getAgentExpandedPath() {
-        String expandedPath = ExpandableUrl.createFromPath(configMap.get("AGENT_PATH")).getExpandedPath();
-        if(isOsWindows() && expandedPath.charAt(0) == '/') { //Agent attaching fails on Windows when path starts with a slash
-            expandedPath = expandedPath.substring(1);
-        }
-        return expandedPath;
+    public String getAgentPath() {
+        return configMap.get("AGENT_PATH");
     }
 
     public void setAgentPath(String agentPath) {
         if (agentPath.endsWith(".jar")) {
-            configMap.put("AGENT_PATH", ExpandableUrl.createFromPath(agentPath).getRawPath());
+            configMap.put("AGENT_PATH", agentPath);
         } else {
             OutputController.getLogger().log(OutputController.Level.MESSAGE_ALL, new RuntimeException("Agent must be a .jar file"));
         }
@@ -71,7 +60,6 @@ public class Config {
 
     private void loadConfigFile() throws IOException {
         configMap = new HashMap<>();
-        configMap.put("AGENT_PATH", "");
         File confFile = new File(configFilePath);
         File legacyConfFile = new File(legacyConfigFilePath);
         if (confFile.exists()) {

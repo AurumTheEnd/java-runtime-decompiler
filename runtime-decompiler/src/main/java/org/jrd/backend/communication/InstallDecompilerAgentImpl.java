@@ -320,7 +320,7 @@ public class InstallDecompilerAgentImpl {
     
     private void locateAgent() throws IOException
     {
-        agentJar = config.getAgentExpandedPath();
+        agentJar = config.getAgentPath();
     }
 
     /**
