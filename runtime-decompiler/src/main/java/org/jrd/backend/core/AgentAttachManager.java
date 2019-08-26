@@ -2,6 +2,9 @@ package org.jrd.backend.core;
 
 import org.jrd.backend.data.VmManager;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 /**
  * Attach manager for agent contains utility methods and information about 
  * attach.

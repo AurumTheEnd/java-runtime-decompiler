@@ -320,9 +320,10 @@ public class VmDecompilerInformationController {
     public static String submitRequest(VmManager vmManager, AgentRequestAction request) {
         //DecompilerAgentRequestResponseListener listener = new DecompilerAgentRequestResponseListener(latch);
         DecompilerRequestReceiver receiver = new DecompilerRequestReceiver(vmManager);
+        String response = receiver.processRequest(request);
         // wait for the request processing
 
-        return receiver.processRequest(request); //listener
+        return response; //listener
     }
 
 }
