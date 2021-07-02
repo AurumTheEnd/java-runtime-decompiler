@@ -272,12 +272,12 @@ public class PluginManager {
 
             StringBuilder dependencyS = new StringBuilder();
             for (ExpandableUrl dependency : dependencyURLs) {
-                dependencyS.append(System.getProperty("path.separator")).append(dependency.getExpandedPath());
+                dependencyS.append(System.getProperty("path.separator")).append(dependency.getExpandedPathForValidation());
             }
             compileStringA.add(dependencyS.toString());
         }
 
-        compileStringA.add(plugin.getWrapperURL().getExpandedPath());
+        compileStringA.add(plugin.getWrapperURL().getExpandedPathForValidation());
         String[] compileString = compileStringA.toArray(new String[0]);
         //compiling and getting error from the compiler
         ByteArrayOutputStream errStream = new ByteArrayOutputStream();

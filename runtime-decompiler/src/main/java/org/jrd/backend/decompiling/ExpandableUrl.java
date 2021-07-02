@@ -60,16 +60,20 @@ public class ExpandableUrl {
         }
     }
 
-    static String expandEnvVars(String path){
-        String pluginDir = unifySlashes(Directories.getXdgJrdBaseDir());
-        String homeDir = unifySlashes(System.getProperty("user.home"));
-        String jrdDir = unifySlashes(getJrdLocation());
+    static String expandEnvVars(String path, boolean prependSlash) {
+        String pluginDir = unifySlashes(Directories.getXdgJrdBaseDir(), prependSlash);
+        String homeDir = unifySlashes(System.getProperty("user.home"), prependSlash);
+        String jrdDir = unifySlashes(getJrdLocation(), prependSlash);
 
         path = path.replace("${JRD}", jrdDir);
         path = path.replace("${XDG_CONFIG_HOME}", pluginDir);
         path = path.replace("${HOME}", homeDir);
 
         return path;
+    }
+
+    static String expandEnvVars(String path){
+        return expandEnvVars(path, true);
     }
 
     private static String collapseEnvVars(String path){
@@ -88,13 +92,17 @@ public class ExpandableUrl {
         return path;
     }
 
-    public static String unifySlashes(String dir){
+    public static String unifySlashes(String dir, boolean shouldPrependSlash) {
         dir = dir.replaceAll("\\\\", "/");
-        if(isOsWindows() && !dir.startsWith("file") && dir.length() > 0 && dir.charAt(0) != '/' && dir.charAt(0) != '$' ){
+        if(shouldPrependSlash && isOsWindows() && !dir.startsWith("file") && dir.length() > 0 && dir.charAt(0) != '/' && dir.charAt(0) != '$' ){
             dir = "/" + dir;
         }
 
         return dir;
+    }
+
+    public static String unifySlashes(String dir){
+        return unifySlashes(dir, true);
     }
 
     public static boolean isOsWindows(){
@@ -119,6 +127,18 @@ public class ExpandableUrl {
         } catch (MalformedURLException e) {
             throw new MalformedURLToPath(e);
         }
+    }
+
+    public String getExpandedPathForValidation() {
+        try {
+            return getExpandedForValidationURL().getPath();
+        } catch (MalformedURLException e) {
+            throw new MalformedURLToPath(e);
+        }
+    }
+
+    private URL getExpandedForValidationURL() throws MalformedURLException {
+        return new URL("file", "", expandEnvVars(this.path, false));
     }
 
     public String getRawPath(){ //${HOME}/path
