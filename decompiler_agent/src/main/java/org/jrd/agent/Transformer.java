@@ -1,14 +1,10 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package org.jrd.agent;
 
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.security.ProtectionDomain;
 import java.util.HashMap;
+import java.util.Map;
 
 /**
  * This class represent our transformer for retrieving bytecode.
@@ -18,11 +14,13 @@ import java.util.HashMap;
 public class Transformer implements ClassFileTransformer {
 
     private boolean allowToSaveBytecode = false;
-    private HashMap<String, byte[]> results = new HashMap<>();
-    private HashMap<String, byte[]> overrides = new HashMap<>();
+    private Map<String, byte[]> results = new HashMap<>();
+    private Map<String, byte[]> overrides = new HashMap<>();
 
     @Override
-    public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
+    public byte[] transform(
+            ClassLoader loader, String className, Class<?> clazz, ProtectionDomain domain, byte[] classfileBuffer
+    ) throws IllegalClassFormatException {
         if (allowToSaveBytecode) {
             results.put(className, classfileBuffer);
             byte[] b = overrides.get(className);
@@ -42,7 +40,7 @@ public class Transformer implements ClassFileTransformer {
     public byte[] getResult(String name) {
         return results.get(name);
     }
-    
+
     public void setOverride(String name, byte[] body) {
         overrides.put(name, body);
     }
@@ -52,10 +50,6 @@ public class Transformer implements ClassFileTransformer {
      */
     public void resetLastValidResult() {
         results = new HashMap<>();
-    }
-    
-    public void resetOverrides() {
-        overrides = new HashMap<>();
     }
 
     /**

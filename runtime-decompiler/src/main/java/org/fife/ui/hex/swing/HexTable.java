@@ -1,6 +1,6 @@
-// 
+//
 // Decompiled by Procyon v0.5.36
-// 
+//
 
 package org.fife.ui.hex.swing;
 
@@ -21,13 +21,13 @@ import java.awt.event.KeyEvent;
 import java.io.IOException;
 import java.io.InputStream;
 
-class HexTable extends JTable {
+public class HexTable extends JTable {
     private static final long serialVersionUID = 1L;
     private final HexEditor hexEditor;
     private HexTableModel model;
     int leadSelectionIndex;
     int anchorSelectionIndex;
-    private static final Color ANTERNATING_CELL_COLOR;
+    private static final Color ALTERNATING_CELL_COLOR;
 
     public HexTable(final HexEditor hexEditor, final HexTableModel model) {
         super(model);
@@ -38,6 +38,7 @@ class HexTable extends JTable {
         this.setFont(new Font("Monospaced", 0, 14));
         this.setCellSelectionEnabled(true);
         this.setSelectionMode(1);
+        this.setSurrendersFocusOnKeystroke(true);
         this.setDefaultEditor(Object.class, new CellEditor());
         this.setDefaultRenderer(Object.class, new CellRenderer());
         this.getTableHeader().setReorderingAllowed(false);
@@ -189,71 +190,86 @@ class HexTable extends JTable {
         return renderer.getTableCellRendererComponent(this, value, isSelected, hasFocus, row, column);
     }
 
+    private void processKeyPressedEvent(KeyEvent e, boolean isExtended, int offset) {
+        this.changeSelectionByOffset(offset, isExtended);
+        e.consume();
+    }
+
     @Override
     protected void processKeyEvent(final KeyEvent e) {
-        if (e.getID() == 401) {
+        if (e.getID() == KeyEvent.KEY_PRESSED) {
+            final boolean extend = e.isShiftDown();
+
             switch (e.getKeyCode()) {
                 case 37: {
-                    final boolean extend = e.isShiftDown();
-                    final int offs = Math.max(this.leadSelectionIndex - 1, 0);
-                    this.changeSelectionByOffset(offs, extend);
-                    e.consume();
+                    processKeyPressedEvent(e, extend, Math.max(this.leadSelectionIndex - 1, 0));
                     break;
                 }
                 case 39: {
-                    final boolean extend = e.isShiftDown();
-                    final int offs = Math.min(this.leadSelectionIndex + 1, this.model.getByteCount() - 1);
-                    this.changeSelectionByOffset(offs, extend);
-                    e.consume();
+                    processKeyPressedEvent(
+                            e, extend, Math.min(this.leadSelectionIndex + 1, this.model.getByteCount() - 1)
+                    );
                     break;
                 }
                 case 38: {
-                    final boolean extend = e.isShiftDown();
-                    final int offs = Math.max(this.leadSelectionIndex - 16, 0);
-                    this.changeSelectionByOffset(offs, extend);
-                    e.consume();
+                    processKeyPressedEvent(e, extend, Math.max(this.leadSelectionIndex - 16, 0));
                     break;
                 }
                 case 40: {
-                    final boolean extend = e.isShiftDown();
-                    final int offs = Math.min(this.leadSelectionIndex + 16, this.model.getByteCount() - 1);
-                    this.changeSelectionByOffset(offs, extend);
-                    e.consume();
+                    processKeyPressedEvent(
+                            e, extend, Math.min(this.leadSelectionIndex + 16, this.model.getByteCount() - 1)
+                    );
                     break;
                 }
                 case 34: {
-                    final boolean extend = e.isShiftDown();
                     final int visibleRowCount = this.getVisibleRect().height / this.getRowHeight();
-                    final int offs = Math.min(this.leadSelectionIndex + visibleRowCount * 16, this.model.getByteCount() - 1);
-                    this.changeSelectionByOffset(offs, extend);
-                    e.consume();
+                    final int offs = Math.min(
+                            this.leadSelectionIndex + visibleRowCount * 16, this.model.getByteCount() - 1
+                    );
+
+                    processKeyPressedEvent(e, extend, offs);
                     break;
                 }
                 case 33: {
-                    final boolean extend = e.isShiftDown();
                     final int visibleRowCount = this.getVisibleRect().height / this.getRowHeight();
                     final int offs = Math.max(this.leadSelectionIndex - visibleRowCount * 16, 0);
-                    this.changeSelectionByOffset(offs, extend);
-                    e.consume();
+
+                    processKeyPressedEvent(e, extend, offs);
                     break;
                 }
                 case 36: {
-                    final boolean extend = e.isShiftDown();
-                    final int offs = this.leadSelectionIndex / 16 * 16;
-                    this.changeSelectionByOffset(offs, extend);
-                    e.consume();
+                    processKeyPressedEvent(e, extend, this.leadSelectionIndex / 16 * 16);
                     break;
                 }
                 case 35: {
-                    final boolean extend = e.isShiftDown();
                     int offs = this.leadSelectionIndex / 16 * 16 + 15;
                     offs = Math.min(offs, this.model.getByteCount() - 1);
-                    this.changeSelectionByOffset(offs, extend);
-                    e.consume();
+
+                    processKeyPressedEvent(e, extend, offs);
                     break;
                 }
+                case KeyEvent.VK_SPACE:
+                case KeyEvent.VK_ENTER:
+                    final int row = anchorSelectionIndex / 16;
+                    final int col = anchorSelectionIndex % 16;
+
+                    this.editCellAt(row, col);
+                    e.consume();
+                    break;
+                default:
+                    break;
+            }
+        } else if (e.getID() == KeyEvent.KEY_TYPED) {
+            switch (e.getKeyChar()) {
+                case ' ':
+                case '\n':
+                    e.consume(); // disregard KEY_TYPED after KEY_PRESSED
+                    break;
+                default:
+                    break;
             }
         }
+
         super.processKeyEvent(e);
     }
 
@@ -310,13 +326,13 @@ class HexTable extends JTable {
     }
 
     static {
-        ANTERNATING_CELL_COLOR = new Color(240, 240, 240);
+        ALTERNATING_CELL_COLOR = new Color(240, 240, 240);
     }
 
     private static class CellEditor extends DefaultCellEditor implements FocusListener {
         private static final long serialVersionUID = 1L;
 
-        public CellEditor() {
+        CellEditor() {
             super(createTextField());
             final AbstractDocument doc = (AbstractDocument) ((JTextComponent) this.editorComponent).getDocument();
             doc.setDocumentFilter(new EditorDocumentFilter());
@@ -352,12 +368,19 @@ class HexTable extends JTable {
         private static final long serialVersionUID = 1L;
         private Point highlight;
 
-        public CellRenderer() {
+        CellRenderer() {
             this.highlight = new Point();
         }
 
         @Override
-        public Component getTableCellRendererComponent(final JTable table, final Object value, final boolean selected, final boolean focus, final int row, final int column) {
+        public Component getTableCellRendererComponent(
+                final JTable table,
+                final Object value,
+                final boolean selected,
+                final boolean focus,
+                final int row,
+                final int column
+        ) {
             super.getTableCellRendererComponent(table, sanitize(value, row, column), selected, focus, row, column);
             this.highlight.setLocation(-1, -1);
             if (column == table.getColumnCount() - 1 && HexTable.this.hexEditor.getHighlightSelectionInAsciiDump()) {
@@ -370,11 +393,12 @@ class HexTable extends JTable {
                     final int end = Math.min(selEnd, b2) - b1;
                     this.highlight.setLocation(start, end);
                 }
-                final boolean colorBG = HexTable.this.hexEditor.getAlternateRowBG() && (row & 0x1) > 0;
-                this.setBackground(colorBG ? HexTable.ANTERNATING_CELL_COLOR : table.getBackground());
+                final boolean colorBG = HexTable.this.hexEditor.getAlternateRowBackground() && (row & 0x1) > 0;
+                this.setBackground(colorBG ? HexTable.ALTERNATING_CELL_COLOR : table.getBackground());
             } else if (!selected) {
-                if ((HexTable.this.hexEditor.getAlternateRowBG() && (row & 0x1) > 0) ^ (HexTable.this.hexEditor.getAlternateColumnBG() && (column & 0x1) > 0)) {
-                    this.setBackground(HexTable.ANTERNATING_CELL_COLOR);
+                if ((HexTable.this.hexEditor.getAlternateRowBackground() && (row & 0x1) > 0) ^ // xor!
+                        (HexTable.this.hexEditor.getAlternateColumnBackground() && (column & 0x1) > 0)) {
+                    this.setBackground(HexTable.ALTERNATING_CELL_COLOR);
                 } else {
                     this.setBackground(table.getBackground());
                 }
@@ -383,18 +407,15 @@ class HexTable extends JTable {
         }
 
         private Object sanitize(Object value, int row, int column) {
-            if (column < 0 || column > 15) {
+            if (column < 0 || column > 15 || !(value instanceof String)) {
                 return value;
             }
-            if (value instanceof String) {
-                String s = (String) value;
-                if (s.length() < 2) {
-                    return "0" + s.toUpperCase();
-                } else {
-                    return s.toUpperCase();
-                }
+
+            String s = (String) value;
+            if (s.length() < 2) {
+                return "0" + s.toUpperCase();
             } else {
-                return value;
+                return s.toUpperCase();
             }
         }
 
@@ -433,7 +454,9 @@ class HexTable extends JTable {
         }
 
         @Override
-        public void insertString(final FilterBypass fb, final int offs, final String string, final AttributeSet attr) throws BadLocationException {
+        public void insertString(
+                final FilterBypass fb, final int offs, final String string, final AttributeSet attr
+        ) throws BadLocationException {
             final Document doc = fb.getDocument();
             final String temp = doc.getText(0, offs) + string + doc.getText(offs, doc.getLength() - offs);
             if (this.ensureByteRepresented(temp)) {
@@ -442,7 +465,9 @@ class HexTable extends JTable {
         }
 
         @Override
-        public void replace(final FilterBypass fb, final int offs, final int len, final String text, final AttributeSet attrs) throws BadLocationException {
+        public void replace(
+                final FilterBypass fb, final int offs, final int len, final String text, final AttributeSet attrs
+        ) throws BadLocationException {
             final Document doc = fb.getDocument();
             final String temp = doc.getText(0, offs) + text + doc.getText(offs + len, doc.getLength() - (offs + len));
             if (this.ensureByteRepresented(temp)) {

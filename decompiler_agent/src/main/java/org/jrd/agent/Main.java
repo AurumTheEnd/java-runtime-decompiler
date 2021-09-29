@@ -7,12 +7,15 @@ import java.lang.instrument.Instrumentation;
  *
  * @author pmikova
  */
-public class Main {
+public final class Main {
 
-    private static final String ADRESS_STRING = "address:";
+    private static final String ADDRESS_STRING = "address:";
     private static final String PORT_STRING = "port:";
     private static String hostname;
     private static Integer port;
+
+    private Main() {
+    }
 
     /**
      * Premain method is executed when the agent is loaded. It sets the port and
@@ -29,26 +32,25 @@ public class Main {
         if (agentArgs != null) {
             String[] argsArray = agentArgs.split(",");
             for (String arg : argsArray) {
-                if (arg.startsWith(ADRESS_STRING)) {
-                    hostname = arg.substring(ADRESS_STRING.length(), arg.length());
+                if (arg.startsWith(ADDRESS_STRING)) {
+                    hostname = arg.substring(ADDRESS_STRING.length());
 
                 } else if (arg.startsWith(PORT_STRING)) {
                     try {
-                        port = Integer.valueOf(arg.substring(PORT_STRING.length(), arg.length()));
+                        port = Integer.valueOf(arg.substring(PORT_STRING.length()));
                         if (port <= 0) {
-                            OutputControllerAgent.getLogger().log(new RuntimeException("The port value is negative:" + port));
+                            AgentLogger.getLogger().log(new RuntimeException("The port value is negative:" + port));
                             port = null;
 
                         }
                     } catch (Exception e) {
-                        OutputControllerAgent.getLogger().log(new RuntimeException("The port value is invalid: " + arg + " . Exception: ", e));
+                        AgentLogger.getLogger().log(new RuntimeException("The port value is invalid: " + arg + " . Exception: ", e));
                     }
                 }
             }
         }
 
-        boolean start = ConnectionDelegator.initialize(hostname, port, p);
-
+        ConnectionDelegator.initialize(hostname, port, p);
     }
 
     /**

@@ -1,7 +1,7 @@
 package org.jrd.backend.communication;
 
 
-import org.jrd.backend.core.OutputController;
+import org.jrd.backend.core.Logger;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -11,6 +11,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 
 /**
  * This class opens a socket and contain methods for read and write to socket
@@ -21,9 +22,6 @@ public class Communicate {
     private Socket commSocket;
     private BufferedReader commInput;
     private BufferedWriter commOutput;
-
-    public static final String DEFAULT_ADDRESS = "localhost";
-    //private static final Logger logger = LoggingUtils.getLogger(Communicate.class);
 
     /**
      * Constructor creates a socket on given port and saves the streams into
@@ -36,17 +34,17 @@ public class Communicate {
         try {
             this.commSocket = new Socket(host, port);
         } catch (IOException ex) {
-            OutputController.getLogger().log(OutputController.Level.MESSAGE_ALL, ex);
+            Logger.getLogger().log(Logger.Level.ALL, ex);
         }
         InputStream is;
         try {
             is = this.commSocket.getInputStream();
         } catch (IOException e) {
-            OutputController.getLogger().log(OutputController.Level.MESSAGE_ALL, e);
+            Logger.getLogger().log(Logger.Level.ALL, e);
             try {
                 this.commSocket.close();
             } catch (IOException e1) {
-                OutputController.getLogger().log(OutputController.Level.MESSAGE_ALL, e1);
+                Logger.getLogger().log(Logger.Level.ALL, e1);
             }
             return;
         }
@@ -55,19 +53,17 @@ public class Communicate {
         try {
             os = this.commSocket.getOutputStream();
         } catch (IOException e) {
-            OutputController.getLogger().log(OutputController.Level.MESSAGE_DEBUG, e);
+            Logger.getLogger().log(Logger.Level.DEBUG, e);
             try {
                 this.commSocket.close();
             } catch (IOException e1) {
-                OutputController.getLogger().log(OutputController.Level.MESSAGE_DEBUG, e1);
+                Logger.getLogger().log(Logger.Level.DEBUG, e1);
             }
             return;
         }
 
-        this.commInput = new BufferedReader(new InputStreamReader(is));
-        this.commOutput = new BufferedWriter(new OutputStreamWriter(os));
-
-        return;
+        this.commInput = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+        this.commOutput = new BufferedWriter(new OutputStreamWriter(os, StandardCharsets.UTF_8));
     }
 
     /**
@@ -77,7 +73,7 @@ public class Communicate {
         try {
             this.commSocket.close(); // also closes the in/out streams
         } catch (IOException e) {
-            OutputController.getLogger().log(OutputController.Level.MESSAGE_DEBUG, e);
+            Logger.getLogger().log(Logger.Level.DEBUG, e);
         } finally {
             this.commSocket = null;
             this.commInput = null;
@@ -85,59 +81,77 @@ public class Communicate {
         }
     }
 
+    private String trimReadLine() throws IOException {
+        String line = this.commInput.readLine();
+
+        if (line == null) {
+            Logger.getLogger().log(Logger.Level.ALL, new RuntimeException("Agent returned null response."));
+            return "ERROR";
+        }
+
+        return line.trim();
+    }
+
     /**
      * Method that reads agent's response.
      * @return "ERROR" in case of fail or corresponding bytes or class names
      */
-    public String readResponse(){
+    @SuppressWarnings("ReturnCount") // returns in switch cases
+    public String readResponse() {
         String initLine;
+
+        // read header
         try {
-            initLine = this.commInput.readLine().trim();
+            initLine = trimReadLine();
         } catch (IOException ex) {
-            OutputController.getLogger().log(OutputController.Level.MESSAGE_DEBUG, ex);
+            Logger.getLogger().log(Logger.Level.DEBUG, ex);
             return "ERROR";
         }
-        
-        if (initLine.equals("ERROR")) {
-            OutputController.getLogger().log(OutputController.Level.MESSAGE_ALL, new RuntimeException("Agent returned error."));
-            return "ERROR";
-       } else if (initLine.equals("BYTES")) {
-            try {
-                String s = this.commInput.readLine();
-                s = s.trim();
-                OutputController.getLogger().log(OutputController.Level.MESSAGE_DEBUG, "Agent returned bytes: "+s);
-                return s;
-            } catch (IOException ex) {
-                OutputController.getLogger().log(OutputController.Level.MESSAGE_DEBUG, ex);
-            }
-        } else if (initLine.equals("CLASSES")) {
-            StringBuilder str = new StringBuilder();
-            while (true) {
+
+        // parse body based on header
+        switch (initLine) {
+            case "ERROR":
+                Logger.getLogger().log(Logger.Level.ALL, new RuntimeException("Agent returned error."));
+                return "ERROR";
+            case "BYTES":
                 try {
-                    String s = this.commInput.readLine();
-                    if (s == null) {
-                        break;
-                    }
-                    s = s.trim();
-                    if (!s.isEmpty()) {
-                        str.append(s).append(";");
-                    }
+                    String bytes = trimReadLine();
+
+                    Logger.getLogger().log(Logger.Level.DEBUG, "Agent returned bytes: " + bytes);
+                    return bytes;
                 } catch (IOException ex) {
-                    OutputController.getLogger().log(OutputController.Level.MESSAGE_DEBUG, ex);
+                    Logger.getLogger().log(Logger.Level.ALL, ex);
+                    return "ERROR";
                 }
-            }
-            OutputController.getLogger().log(OutputController.Level.MESSAGE_DEBUG,"Agent returned class names.");
-            return str.toString();
-            // Agent shutdown response
-        } else if (initLine.equals("GOODBYE")) {
-            return "OK";
-            //generic done for non-returning  commands. Eg overwrite response. Made this confirmation more  granular? done-overwrite?
-        } else if (initLine.equals("DONE")) {
-            return "OK";
+            case "CLASSES":
+                StringBuilder str = new StringBuilder();
+
+                while (true) {
+                    try {
+                        String s = this.commInput.readLine();
+                        if (s == null) {
+                            break;
+                        }
+                        s = s.trim();
+                        if (!s.isEmpty()) {
+                            str.append(s).append(";");
+                        }
+                    } catch (IOException ex) {
+                        Logger.getLogger().log(Logger.Level.ALL, ex);
+                    }
+                }
+                Logger.getLogger().log(Logger.Level.DEBUG, "Agent successfully returned class names.");
+                return str.toString();
+            case "GOODBYE":
+                Logger.getLogger().log(Logger.Level.DEBUG, "Agent closed socket when halting.");
+                return "OK";
+            case "DONE":
+                Logger.getLogger().log(Logger.Level.DEBUG, "Agent successfully overwrote class.");
+                return "OK";
+            default:
+                Logger.getLogger().log(Logger.Level.ALL, "Unknown agent response header: '" + initLine + "'.");
+                return "ERROR";
         }
-        
-        OutputController.getLogger().log(OutputController.Level.MESSAGE_ALL, "Unknow header of " + initLine);
-        return "ERROR";
     }
 
     /**

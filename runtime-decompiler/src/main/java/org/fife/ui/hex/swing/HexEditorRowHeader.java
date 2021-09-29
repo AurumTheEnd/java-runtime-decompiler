@@ -1,6 +1,6 @@
-// 
+//
 // Decompiled by Procyon v0.5.36
-// 
+//
 
 package org.fife.ui.hex.swing;
 
@@ -11,7 +11,7 @@ import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 import java.awt.*;
 
-class HexEditorRowHeader extends JList implements TableModelListener {
+public class HexEditorRowHeader extends JList implements TableModelListener {
     private static final long serialVersionUID = 1L;
     private HexTable table;
     private RowHeaderListModel model;
@@ -19,7 +19,9 @@ class HexEditorRowHeader extends JList implements TableModelListener {
 
     public HexEditorRowHeader(final HexTable table) {
         this.table = table;
-        this.setModel(this.model = new RowHeaderListModel());
+        this.model = new RowHeaderListModel();
+
+        this.setModel(model);
         this.setFocusable(false);
         this.setFont(table.getFont());
         this.setFixedCellHeight(table.getRowHeight());
@@ -68,15 +70,17 @@ class HexEditorRowHeader extends JList implements TableModelListener {
         CELL_BORDER = BorderFactory.createEmptyBorder(0, 5, 0, 5);
     }
 
-    private class CellRenderer extends DefaultListCellRenderer {
+    private static class CellRenderer extends DefaultListCellRenderer {
         private static final long serialVersionUID = 1L;
 
-        public CellRenderer() {
+        CellRenderer() {
             this.setHorizontalAlignment(4);
         }
 
         @Override
-        public Component getListCellRendererComponent(final JList list, final Object value, final int index, final boolean selected, final boolean hasFocus) {
+        public Component getListCellRendererComponent(
+                final JList list, final Object value, final int index, final boolean selected, final boolean hasFocus
+        ) {
             super.getListCellRendererComponent(list, value, index, false, hasFocus);
             this.setBorder(HexEditorRowHeader.CELL_BORDER);
             return this;
@@ -110,12 +114,14 @@ class HexEditorRowHeader extends JList implements TableModelListener {
     private class RowHeaderBorder extends EmptyBorder {
         private static final long serialVersionUID = 1L;
 
-        public RowHeaderBorder() {
+        RowHeaderBorder() {
             super(0, 0, 0, 2);
         }
 
         @Override
-        public void paintBorder(final Component c, final Graphics g, int x, final int y, final int width, final int height) {
+        public void paintBorder(
+                final Component c, final Graphics g, int x, final int y, final int width, final int height
+        ) {
             x = x + width - this.right;
             g.setColor(HexEditorRowHeader.this.table.getGridColor());
             g.drawLine(x, y, x, y + height);

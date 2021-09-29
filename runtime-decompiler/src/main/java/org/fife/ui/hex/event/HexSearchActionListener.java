@@ -1,7 +1,7 @@
 package org.fife.ui.hex.event;
 
 import org.fife.ui.hex.swing.HexSearch;
-import org.jrd.backend.core.OutputController;
+import org.jrd.backend.core.Logger;
 
 import javax.swing.*;
 import java.awt.event.ActionEvent;
@@ -20,7 +20,12 @@ public class HexSearchActionListener implements ActionListener {
         PREV
     }
 
-    public HexSearchActionListener(HexSearch hexSearchEngine, JTextField hexSearch, JComboBox<HexSearch.HexSearchOptions> hexSearchType, Method method) {
+    public HexSearchActionListener(
+            HexSearch hexSearchEngine,
+            JTextField hexSearch,
+            JComboBox<HexSearch.HexSearchOptions> hexSearchType,
+            Method method
+    ) {
         this.hexSearchEngine = hexSearchEngine;
         this.hexSearch = hexSearch;
         this.hexSearchType = hexSearchType;
@@ -32,15 +37,20 @@ public class HexSearchActionListener implements ActionListener {
         try {
             switch (method) {
                 case NEXT:
-                    hexSearchEngine.next(hexSearch.getText(), (HexSearch.HexSearchOptions) hexSearchType.getSelectedItem());
+                    hexSearchEngine.next(
+                            hexSearch.getText(), (HexSearch.HexSearchOptions) hexSearchType.getSelectedItem()
+                    );
                     break;
-
                 case PREV:
-                    hexSearchEngine.previous(hexSearch.getText(), (HexSearch.HexSearchOptions) hexSearchType.getSelectedItem());
+                    hexSearchEngine.previous(
+                            hexSearch.getText(), (HexSearch.HexSearchOptions) hexSearchType.getSelectedItem()
+                    );
+                    break;
+                default:
                     break;
             }
         } catch (Exception e) {
-            OutputController.getLogger().log(e);
+            Logger.getLogger().log(e);
         }
     }
 }

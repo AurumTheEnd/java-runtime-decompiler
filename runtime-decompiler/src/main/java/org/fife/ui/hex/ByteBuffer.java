@@ -1,6 +1,6 @@
-// 
+//
 // Decompiled by Procyon v0.5.36
-// 
+//
 
 package org.fife.ui.hex;
 
@@ -108,6 +108,6 @@ public class ByteBuffer {
     }
 
     public byte[] getBuffer() {
-        return  Arrays.copyOf(buffer, buffer.length);
+        return Arrays.copyOf(buffer, buffer.length);
     }
 }

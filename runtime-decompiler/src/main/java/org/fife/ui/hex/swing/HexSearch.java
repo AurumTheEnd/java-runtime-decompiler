@@ -1,6 +1,8 @@
 package org.fife.ui.hex.swing;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.List;
 
 public class HexSearch {
 
@@ -22,11 +24,11 @@ public class HexSearch {
         return searchState;
     }
 
-    private ArrayList<Byte> getByteArray(String str, HexSearchOptions type) {
-        ArrayList<Byte> arr = new ArrayList<>();
+    private List<Byte> getByteArray(String str, HexSearchOptions type) {
+        List<Byte> arr = new ArrayList<>();
         switch (type) {
             case TEXT:
-                byte[] bytesText = str.getBytes();
+                byte[] bytesText = str.getBytes(StandardCharsets.UTF_8);
                 if (bytesText.length == 0) {
                     throw new StringIndexOutOfBoundsException();
                 }
@@ -64,8 +66,8 @@ public class HexSearch {
 
     public boolean searchHexCode(String str, HexSearchOptions type) {
         searchState = new SearchState(0, 0, false);
-        ArrayList<Byte> arr = getByteArray(str, type);
-        findMatch(arr,0);
+        List<Byte> arr = getByteArray(str, type);
+        findMatch(arr, 0);
         if (searchState.isFound()) {
             hex.setSelectedRange(searchState.getStart(), searchState.getEnd() - 1);
             return true;
@@ -73,7 +75,7 @@ public class HexSearch {
         return false;
     }
 
-    private boolean findMatch(ArrayList<Byte> arr, int start) {
+    private boolean findMatch(List<Byte> arr, int start) {
         int byteCount = hex.getByteCount();
         for (int i = start; i < byteCount; i++) {
             if (arr.get(0) == hex.getByte(i)) {
@@ -86,7 +88,7 @@ public class HexSearch {
         return false;
     }
 
-    private boolean checkIfMatches(ArrayList<Byte> arr, int start) {
+    private boolean checkIfMatches(List<Byte> arr, int start) {
         for (int i = 0; i < arr.size(); i++) {
             if (!(arr.get(i) == hex.getByte(i + start))) {
                 return false;
@@ -99,7 +101,7 @@ public class HexSearch {
         if (!searchState.isFound()) {
             return false;
         }
-        ArrayList<Byte> arr = getByteArray(str, type);
+        List<Byte> arr = getByteArray(str, type);
         searchState = new SearchState(searchState.getStart(), searchState.getEnd(), false);
         findMatch(arr, searchState.getStart() + 1);
         if (searchState.isFound()) {
@@ -115,7 +117,7 @@ public class HexSearch {
         if (!searchState.isFound()) {
             return false;
         }
-        ArrayList<Byte> arr = getByteArray(str, type);
+        List<Byte> arr = getByteArray(str, type);
         searchState = new SearchState(searchState.getStart(), searchState.getEnd(), false);
         for (int i = searchState.getStart() - 1; i > 0; i--) {
             if (arr.get(0) == hex.getByte(i)) {

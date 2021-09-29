@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers inputStream Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template inputStream the editor.
- */
 package org.jrd.agent;
 
 import java.io.BufferedReader;
@@ -13,6 +8,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -24,22 +20,20 @@ import java.util.concurrent.LinkedBlockingQueue;
  */
 public class AgentActionWorker extends Thread {
 
-    private Socket socket;
     private InstrumentationProvider provider;
     private Boolean abort = false;
 
-    public AgentActionWorker(Socket socket, InstrumentationProvider provider){
-        this.socket = socket;
+    public AgentActionWorker(Socket socket, InstrumentationProvider provider) {
         this.provider = provider;
 
         try {
             executeRequest(socket);
         } catch (Exception e) {
-            OutputControllerAgent.getLogger().log(new RuntimeException("Error when trying to execute the request. Exception: " , e));
+            AgentLogger.getLogger().log(new RuntimeException("Error when trying to execute the request. Cause: ", e));
             try {
                 socket.close();
             } catch (IOException e1) {
-                OutputControllerAgent.getLogger().log(new RuntimeException("Error when trying to close the socket: ", e1));
+                AgentLogger.getLogger().log(new RuntimeException("Error when trying to close the socket. Cause: ", e1));
             }
         }
     }
@@ -49,11 +43,11 @@ public class AgentActionWorker extends Thread {
         try {
             is = socket.getInputStream();
         } catch (IOException e) {
-            OutputControllerAgent.getLogger().log(new RuntimeException("Error when opening the input stream of the socket. Exception: " , e));
+            AgentLogger.getLogger().log(new RuntimeException("Error when opening the socket input stream. Cause: ", e));
             try {
                 socket.close();
             } catch (IOException e1) {
-                OutputControllerAgent.getLogger().log(new RuntimeException("Error when closing the socket. Exception: ", e1));
+                AgentLogger.getLogger().log(new RuntimeException("Error when closing the socket. Cause: ", e1));
             }
             return;
         }
@@ -62,22 +56,22 @@ public class AgentActionWorker extends Thread {
         try {
             os = socket.getOutputStream();
         } catch (IOException e) {
-            OutputControllerAgent.getLogger().log(new RuntimeException("Error when opening the output stream of the socket. Exception: ", e));
+            AgentLogger.getLogger().log(new RuntimeException("Error when opening the socket output stream. Cause: ", e));
             try {
                 socket.close();
             } catch (IOException e1) {
-                OutputControllerAgent.getLogger().log(new RuntimeException("Error when closing the socket. Exception: ", e1));
+                AgentLogger.getLogger().log(new RuntimeException("Error when closing the socket. Cause: ", e1));
             }
             return;
         }
-        BufferedReader inputStream = new BufferedReader(new InputStreamReader(is));
-        BufferedWriter outputStream = new BufferedWriter(new OutputStreamWriter(os));
+        BufferedReader inputStream = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+        BufferedWriter outputStream = new BufferedWriter(new OutputStreamWriter(os, StandardCharsets.UTF_8));
 
         String line = null;
         try {
             line = inputStream.readLine();
         } catch (IOException e) {
-            OutputControllerAgent.getLogger().log(new RuntimeException("Exception occurred during reading of the line: ", e));
+            AgentLogger.getLogger().log(new RuntimeException("Exception occurred during reading of the line: ", e));
         }
         try {
             if (null == line) {
@@ -86,17 +80,17 @@ public class AgentActionWorker extends Thread {
             } else {
                 switch (line) {
                     case "HALT":
-                        closeSocket(outputStream);
-                        OutputControllerAgent.getLogger().log("AGENT: Received HALT command, Closing socket and exiting.");
+                        closeSocket(outputStream, socket);
+                        AgentLogger.getLogger().log("Agent received HALT command, closing socket and exiting.");
                         break;
                     case "CLASSES":
-                        getAllLoadedClasses(inputStream, outputStream);
+                        getAllLoadedClasses(outputStream);
                         break;
                     case "BYTES":
                         sendByteCode(inputStream, outputStream);
                         break;
                     case "OVERWRITE":
-                        recieveByteCode(inputStream, outputStream);
+                        receiveByteCode(inputStream, outputStream);
                         break;
                     default:
                         outputStream.write("ERROR\n");
@@ -105,18 +99,17 @@ public class AgentActionWorker extends Thread {
                 }
             }
         } catch (IOException e) {
-            OutputControllerAgent.getLogger().log(new RuntimeException("Exception occured while trying to process the request:", e));
-
+            AgentLogger.getLogger().log(new RuntimeException("Error when trying to process the request:", e));
         } finally {
             try {
                 socket.close();
             } catch (IOException e) {
-                OutputControllerAgent.getLogger().log(new RuntimeException("Exception occured while trying to close the socket:", e));
+                AgentLogger.getLogger().log(new RuntimeException("Error when trying to close the socket:", e));
             }
         }
     }
 
-    private void getAllLoadedClasses(BufferedReader in, BufferedWriter out) throws IOException {
+    private void getAllLoadedClasses(BufferedWriter out) throws IOException {
         out.write("CLASSES");
         out.newLine();
         LinkedBlockingQueue<String> classNames = new LinkedBlockingQueue<String>(1024);
@@ -124,15 +117,15 @@ public class AgentActionWorker extends Thread {
             try {
                 provider.getClassesNames(classNames, abort);
             } catch (InterruptedException e) {
-                OutputControllerAgent.getLogger().log(e);
+                AgentLogger.getLogger().log(e);
             }
         }).start();
-        while (true){
+        while (true) {
             String x = classNames.poll();
-            if (x == null){
+            if (x == null) {
                 continue;
             }
-            if ("---END---".equals(x)){
+            if ("---END---".equals(x)) {
                 break;
             } else {
                 out.write(x);
@@ -157,13 +150,13 @@ public class AgentActionWorker extends Thread {
             out.write(encoded);
             out.newLine();
         } catch (Exception ex) {
-            OutputControllerAgent.getLogger().log(ex);
+            AgentLogger.getLogger().log(ex);
             out.write("ERROR\n");
         }
         out.flush();
     }
-    
-    private void recieveByteCode(BufferedReader in, BufferedWriter out) throws IOException {
+
+    private void receiveByteCode(BufferedReader in, BufferedWriter out) throws IOException {
         String className = in.readLine();
         if (className == null) {
             out.write("ERROR\n");
@@ -178,20 +171,19 @@ public class AgentActionWorker extends Thread {
         }
         try {
             provider.setClassBody(className, Base64.getDecoder().decode(classBodyBase64));
-            out.write("DONE");//overwrite specific done?
+            out.write("DONE"); // overwrite specific done?
             out.newLine();
         } catch (Exception ex) {
-            OutputControllerAgent.getLogger().log(ex);
+            AgentLogger.getLogger().log(ex);
             out.write("ERROR\n");
         }
         out.flush();
     }
 
-    private void closeSocket(BufferedWriter out) throws IOException {
+    private void closeSocket(BufferedWriter out, Socket socket) throws IOException {
         out.write("GOODBYE");
         out.flush();
         socket.close();
         ConnectionDelegator.gracefulShutdown();
     }
-
 }

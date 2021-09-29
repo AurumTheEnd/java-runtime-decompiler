@@ -1,8 +1,9 @@
 package org.jrd.backend.core;
 
+import com.sun.tools.attach.AgentInitializationException;
+import com.sun.tools.attach.AgentLoadException;
+import com.sun.tools.attach.AttachNotSupportedException;
 import org.jrd.backend.communication.InstallDecompilerAgentImpl;
-
-import com.sun.tools.attach.*;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -14,53 +15,45 @@ import java.util.List;
  */
 public class AgentLoader {
 
-    //private static final Logger logger = LoggingUtils.getLogger(AgentLoader.class);
+    static final int INVALID_PORT = -1;
     private static final int PORT_MIN = 10900;
     private static final int MAX_PORT_SLOTS = 200;
     private static final int PORT_MAX = PORT_MIN + MAX_PORT_SLOTS;
-    //private final ProcessChecker processChecker;
-    static final String LOCALHOST = "localhost";
-    static final int INVALID_PORT = -1;
 
-    private static final String AGENT_LOADED_PROPERTY = "com.redhat.decompiler.thermostat.loaded";
     private static final String AGENT_PORT_PROPERTY = "com.redhat.decompiler.thermostat.port";
-    private static final String HELPER_SOCKET_NAME_PROPERTY = "com.redhat.decompiler.thermostat.socketName";
-    private static final String AGENT_HOME_SYSTEM_PROP = "com.redhat.decompiler.thermostat.home";
-    private static final String DECOMPILER_HOME_ENV_VARIABLE = "DECOMPILER_HOME";
-    private static final String DECOMPILER_PREFIX = "com.redhat.decompiler.thermostat";
 
 
     AgentLoader() {
-       
     }
 
     /**
-     * This method handles the attach of a decompiler agent to given VM.
-     * @param vmId ID of VM to which we attach the agent
+     * This method handles the attachment of a decompiler agent to given VM.
      * @param pid PID of the VM
-     * @return AgentInfo object, if successful, else null
+     * @return port number if successful, else {@link #INVALID_PORT}
      */
-    public int attach(String vmId, int pid) {
+    public int attach(int pid) {
         int port = findPort();
-        //logger.finest("Attempting to attach decompiler agent for VM '" + pid + "' on port '" + port + "'");
-        try {
-            String[] installProps = createProperties(port);
-            boolean agentJarToBootClassPath = true;
-            try{  
-            InstallDecompilerAgentImpl.install(Integer.toString(pid), false, "localhost", port, installProps);
-                } catch (IllegalArgumentException | IOException | AttachNotSupportedException | AgentLoadException | AgentInitializationException ex) {
-                OutputController.getLogger().log(OutputController.Level.MESSAGE_ALL, new RuntimeException("Attach failed!! Cause: " + ex.getMessage(), ex));
-                    return INVALID_PORT;
-                }
+        String[] installProps = createProperties(port);
 
-            if (port > 0) {
-                return port;//new AgentInfo(pid, port, null, vmId, agentId, false);
-            } else {
-                return INVALID_PORT;
-            }
-        } catch (IllegalArgumentException | IOException e) {
-            OutputController.getLogger().log(OutputController.Level.MESSAGE_ALL, new RuntimeException("Unable to attach decompiler agent to VM '" + pid + "' on port '" + port + "'", e));
-        return INVALID_PORT;
+        Logger.getLogger().log(
+                Logger.Level.DEBUG,
+                "Attempting to attach decompiler agent for VM '" + pid + "' on port '" + port + "'"
+        );
+
+        try {
+            InstallDecompilerAgentImpl.install(
+                    Integer.toString(pid), false, false, "localhost", port, installProps
+            );
+        } catch (IllegalArgumentException | IOException | AttachNotSupportedException |
+                AgentLoadException | AgentInitializationException ex) {
+            Logger.getLogger().log(Logger.Level.ALL, new RuntimeException("Attach failed!! Cause: ", ex));
+            return INVALID_PORT;
+        }
+
+        if (port > 0) {
+            return port;
+        } else {
+            return INVALID_PORT;
         }
     }
 
@@ -72,19 +65,21 @@ public class AgentLoader {
                     return i;
                 }
             } catch (IOException e) {
-                OutputController.getLogger().log(OutputController.Level.MESSAGE_DEBUG, new RuntimeException("Could not open socket on port " + i + ". Trying again.", e));
-
+                Logger.getLogger().log(
+                        Logger.Level.DEBUG,
+                        new RuntimeException("Could not open socket on port " + i + ". Trying again.", e)
+                );
             }
         }
+
         throw new IllegalStateException("No ports available in range [" + PORT_MIN + "," + PORT_MAX + "]");
     }
 
-
-
-    private String[] createProperties(int port) throws IOException {
+    private String[] createProperties(int port) {
         List<String> properties = new ArrayList<>();
-        String agentPortProperty = AGENT_PORT_PROPERTY + "=" + Integer.valueOf(port).toString();
-        properties.add(agentPortProperty);
+
+        properties.add(AGENT_PORT_PROPERTY + "=" + port);
+
         return properties.toArray(new String[]{});
     }
 }

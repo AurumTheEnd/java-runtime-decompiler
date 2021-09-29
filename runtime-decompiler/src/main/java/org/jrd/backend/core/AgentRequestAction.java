@@ -33,6 +33,7 @@
  * library, but you are not obligated to do so.  If you do not wish
  * to do so, delete this exception statement from your version.
  */
+
 package org.jrd.backend.core;
 
 import org.jrd.backend.data.VmInfo;
@@ -46,10 +47,10 @@ import java.util.TreeMap;
  * @author pmikova
  */
 public class AgentRequestAction {
-    
+
     private final Map<String, String> parameters;
-    
-    public static enum RequestAction {
+
+    public enum RequestAction {
         CLASSES(0),
         BYTES(1),
         HALT(2),
@@ -57,15 +58,11 @@ public class AgentRequestAction {
 
         private final int intVal;
 
-        private RequestAction(int intVal) {
+        RequestAction(int intVal) {
             this.intVal = intVal;
         }
 
-        /**
-         *
-         * @param act action string
-         * @return request
-         */
+        @SuppressWarnings("ReturnCount") // returns in switch cases
         public static RequestAction returnAction(String act) {
 
             int action;
@@ -88,16 +85,12 @@ public class AgentRequestAction {
             }
         }
 
-        int getActionId() {
-            return intVal;
-        }
-
         private String toIntString() {
             return Integer.toString(intVal);
         }
 
     }
-    
+
     public AgentRequestAction() {
         parameters = new TreeMap<>();
     }
@@ -109,16 +102,20 @@ public class AgentRequestAction {
     public static final String LISTEN_PORT_PARAM_NAME = "listen-port";
     public static final int NOT_ATTACHED_PORT = -1;
     public static final String CLASS_TO_DECOMPILE_NAME = "class-to-decompile";
-    
+
     public static final String CLASS_TO_OVERWRITE_BODY = "body-to-overwrite";
 
-    public static AgentRequestAction create(VmInfo vmInfo, String hostname, int listenPort, RequestAction action, String name, String base64body) {
+    public static AgentRequestAction create(
+            VmInfo vmInfo, String hostname, int listenPort, RequestAction action, String name, String base64body
+    ) {
         AgentRequestAction req = create(vmInfo, hostname, listenPort, action, name);
         req.setParameter(CLASS_TO_OVERWRITE_BODY, base64body);
         return req;
     }
-    
-    public static AgentRequestAction create(VmInfo vmInfo, String hostname, int listenPort, RequestAction action, String name) {
+
+    public static AgentRequestAction create(
+            VmInfo vmInfo, String hostname, int listenPort, RequestAction action, String name
+    ) {
         AgentRequestAction req = create(vmInfo, hostname, listenPort, action);
         req.setParameter(CLASS_TO_DECOMPILE_NAME, name);
         return req;

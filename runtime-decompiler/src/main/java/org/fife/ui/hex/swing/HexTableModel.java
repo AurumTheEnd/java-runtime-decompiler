@@ -1,6 +1,6 @@
-// 
+//
 // Decompiled by Procyon v0.5.36
-// 
+//
 
 package org.fife.ui.hex.swing;
 
@@ -26,7 +26,7 @@ public class HexTableModel extends AbstractTableModel {
     private String[] columnNames;
     private byte[] bitBuf;
     private char[] dumpColBuf;
-    private String[] byteStrVals;
+    private String[] byteStringValues;
 
     public HexTableModel(final HexEditor editor) {
         this.bitBuf = new byte[16];
@@ -34,15 +34,19 @@ public class HexTableModel extends AbstractTableModel {
         this.doc = new ByteBuffer(16);
         this.bytesPerRow = 16;
         this.undoManager = new UndoManager();
+
         this.columnNames = new String[17];
         for (int i = 0; i < 16; ++i) {
             this.columnNames[i] = "+" + Integer.toHexString(i).toUpperCase();
         }
         this.columnNames[16] = "ASCII Dump";
-        Arrays.fill(this.dumpColBuf = new char[16], ' ');
-        this.byteStrVals = new String[256];
-        for (int i = 0; i < this.byteStrVals.length; ++i) {
-            this.byteStrVals[i] = Integer.toHexString(i);
+
+        this.dumpColBuf = new char[16];
+        Arrays.fill(dumpColBuf, ' ');
+
+        this.byteStringValues = new String[256];
+        for (int i = 0; i < this.byteStringValues.length; ++i) {
+            this.byteStringValues[i] = Integer.toHexString(i);
         }
     }
 
@@ -74,7 +78,7 @@ public class HexTableModel extends AbstractTableModel {
     public Object getValueAt(final int row, final int col) {
         if (col != this.bytesPerRow) {
             final int pos = this.editor.cellToOffset(row, col);
-            return (pos == -1) ? "" : this.byteStrVals[this.doc.getByte(pos) & 0xFF];
+            return (pos == -1) ? "" : this.byteStringValues[this.doc.getByte(pos) & 0xFF];
         }
         final int pos = this.editor.cellToOffset(row, 0);
         if (pos == -1) {
@@ -174,7 +178,7 @@ public class HexTableModel extends AbstractTableModel {
         private byte oldVal;
         private byte newVal;
 
-        public ByteChangedUndoableEdit(final int offs, final byte oldVal, final byte newVal) {
+        ByteChangedUndoableEdit(final int offs, final byte oldVal, final byte newVal) {
             this.offs = offs;
             this.oldVal = oldVal;
             this.newVal = newVal;
@@ -214,7 +218,7 @@ public class HexTableModel extends AbstractTableModel {
         private byte[] removed;
         private byte[] added;
 
-        public BytesReplacedUndoableEdit(final int offs, final byte[] removed, final byte[] added) {
+        BytesReplacedUndoableEdit(final int offs, final byte[] removed, final byte[] added) {
             this.offs = offs;
             this.removed = removed;
             this.added = added;

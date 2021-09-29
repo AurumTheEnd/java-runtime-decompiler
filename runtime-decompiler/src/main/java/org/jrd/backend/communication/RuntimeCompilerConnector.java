@@ -2,103 +2,34 @@ package org.jrd.backend.communication;
 
 import io.github.mkoncek.classpathless.api.ClassIdentifier;
 import io.github.mkoncek.classpathless.api.ClassesProvider;
+import io.github.mkoncek.classpathless.api.ClasspathlessCompiler;
 import io.github.mkoncek.classpathless.api.IdentifiedBytecode;
 import io.github.mkoncek.classpathless.api.IdentifiedSource;
-import io.github.mkoncek.classpathless.api.InMemoryCompiler;
 import io.github.mkoncek.classpathless.api.MessagesListener;
 import org.jrd.backend.core.AgentRequestAction;
 import org.jrd.backend.core.VmDecompilerStatus;
 import org.jrd.backend.data.Cli;
 import org.jrd.backend.data.VmInfo;
 import org.jrd.backend.data.VmManager;
-import org.jrd.backend.decompiling.DecompilerWrapperInformation;
-import org.jrd.backend.decompiling.PluginManager;
-import org.jrd.frontend.MainFrame.VmDecompilerInformationController;
+import org.jrd.backend.decompiling.DecompilerWrapper;
+import org.jrd.frontend.frame.main.DecompilationController;
 
-import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Random;
-import java.util.logging.Level;
 
 public class RuntimeCompilerConnector {
 
-    private static final boolean slow = true;
-
-    public static class DummyRuntimeCompiler implements InMemoryCompiler {
-
-        @Override
-        public Collection<IdentifiedBytecode> compileClass(ClassesProvider classesProvider, Optional<MessagesListener> messagesListener, IdentifiedSource... identifiedSources) {
-            List<IdentifiedBytecode> results = new ArrayList<>(identifiedSources.length);
-            try {
-                for (IdentifiedSource is : identifiedSources) {
-                    messagesListener.ifPresent(message -> {
-                        message.addMessage(Level.INFO, "Compiling " + is.getClassIdentifier().getFullName() + " of lenght of " + is.getFile().length + " bytes (" + getSrcLengthCatched(is) + " characters)");
-                    });
-                    sleepIfSlow(1000);
-                    for (int x = 0; x < 3; x++) {
-                        messagesListener.ifPresent(message -> message.addMessage(Level.INFO, "Listing classes"));
-                        List<String> l = classesProvider.getClassPathListing();
-                        messagesListener.ifPresent(message -> message.addMessage(Level.INFO, "Listed " + l.size()));
-                        for (int i = 0; i < 3; i++) {
-                            String clname = l.get(new Random().nextInt(l.size() / 2));
-                            messagesListener.ifPresent(message -> message.addMessage(Level.INFO, "Obtaining class: " + clname));
-                            Collection<IdentifiedBytecode> obtained = classesProvider.getClass(new ClassIdentifier(clname));
-                            messagesListener.ifPresent(message -> message.addMessage(Level.INFO, "got " + obtained.size() + " classes: "));
-                            for (IdentifiedBytecode ib : obtained) {
-                                messagesListener.ifPresent(message -> message.addMessage(Level.INFO, ib.getClassIdentifier().getFullName() + " of " + ib.getFile().length + " bytes"));
-                            }
-                            sleepIfSlow(1000);
-                        }
-                        sleepIfSlow(1000);
-                    }
-                    IdentifiedBytecode ib = new IdentifiedBytecode(is.getClassIdentifier(), ("Freshly compiled " + is.getClassIdentifier().getFullName() + " from src of lenght of " + is.getFile().length + " bytes (" + getSrcLengthCatched(is) + " characters) at " + new Date().toString()).getBytes());
-                    messagesListener.ifPresent(message -> message.addMessage(Level.INFO, "Compiled " + ib.getClassIdentifier().getFullName() + " to " + ib.getFile().length + " bytes"));
-                    results.add(ib);
-                }
-                int i = 0;
-                Random r = new Random();
-                while (r.nextBoolean()) {
-                    i++;
-                    String n = "random.inner$class" + i;
-                    IdentifiedBytecode ib = new IdentifiedBytecode(new ClassIdentifier(n), ("Freshly compiled " + n + new Date().toString()).getBytes());
-                    messagesListener.ifPresent(message -> message.addMessage(Level.INFO, "Compiled " + ib.getClassIdentifier().getFullName() + " to " + ib.getFile().length + " bytes"));
-                    results.add(ib);
-                }
-            } catch (InterruptedException ex) {
-                throw new RuntimeException(ex);
-            }
-            return results;
-        }
-
-        private void sleepIfSlow(long i) throws InterruptedException {
-            if (slow) {
-                Thread.sleep(i);
-            }
-        }
-
-    }
-
-    private static int getSrcLengthCatched(IdentifiedSource is) {
-        try {
-            return is.getSourceCode().length();
-        } catch (UnsupportedEncodingException ex) {
-            throw new RuntimeException(ex);
-        }
-    }
-
-    public static class JRDClassesProvider implements ClassesProvider {
+    public static class JrdClassesProvider implements ClassesProvider {
         private final VmInfo vmInfo;
         private final VmManager vmManager;
 
-        public JRDClassesProvider(VmInfo vmInfo, VmManager vmManager) {
+        public JrdClassesProvider(VmInfo vmInfo, VmManager vmManager) {
             this.vmInfo = vmInfo;
             this.vmManager = vmManager;
         }
@@ -116,9 +47,11 @@ public class RuntimeCompilerConnector {
 
         @Override
         public List<String> getClassPathListing() {
-            AgentRequestAction request = VmDecompilerInformationController.createRequest(vmInfo, AgentRequestAction.RequestAction.CLASSES);
-            String response = VmDecompilerInformationController.submitRequest(vmManager, request);
-            if (response.equals("ok")) {
+            AgentRequestAction request = DecompilationController.createRequest(
+                    vmInfo, AgentRequestAction.RequestAction.CLASSES
+            );
+            String response = DecompilationController.submitRequest(vmManager, request);
+            if ("ok".equals(response)) {
                 String[] classes = vmInfo.getVmDecompilerStatus().getLoadedClassNames();
                 return Arrays.asList(classes);
             } else {
@@ -127,29 +60,31 @@ public class RuntimeCompilerConnector {
         }
     }
 
-    public static class ForeignCompilerWrapper implements InMemoryCompiler {
-        private final PluginManager pluginManager;
-        private final DecompilerWrapperInformation currentDecompiler;
+    public static class ForeignCompilerWrapper implements ClasspathlessCompiler {
+        private final DecompilerWrapper currentDecompiler;
 
-        public ForeignCompilerWrapper(PluginManager pm, DecompilerWrapperInformation currentDecompiler) {
-            this.pluginManager = pm;
+        public ForeignCompilerWrapper(DecompilerWrapper currentDecompiler) {
             this.currentDecompiler = currentDecompiler;
         }
 
         @Override
-        public Collection<IdentifiedBytecode> compileClass(ClassesProvider classprovider, Optional<MessagesListener> messagesConsummer, IdentifiedSource... javaSourceFiles) {
+        public Collection<IdentifiedBytecode> compileClass(
+                ClassesProvider provider, Optional<MessagesListener> messagesConsumer, IdentifiedSource... sources
+        ) {
             try {
-                Map<String,String> inputs = new HashMap<>();
-                for(IdentifiedSource is: javaSourceFiles) {
+                Map<String, String> inputs = new HashMap<>();
+                for (IdentifiedSource is: sources) {
                     inputs.put(is.getClassIdentifier().getFullName(), is.getSourceCode());
                 }
-                Object r = currentDecompiler.getCompileMethod().invoke(currentDecompiler.getInstance(), inputs, new String[0], messagesConsummer.get());
+                Object r = currentDecompiler.getCompileMethod().invoke(
+                        currentDecompiler.getInstance(), inputs, new String[0], messagesConsumer.get()
+                );
                 Map<String, byte[]> rr = (Map<String, byte[]>) r;
                 List<IdentifiedBytecode> rrr = new ArrayList<>(rr.size());
-                for(Map.Entry<String, byte[]> e: rr.entrySet()){
+                for (Map.Entry<String, byte[]> e: rr.entrySet()) {
                     rrr.add(new IdentifiedBytecode(new ClassIdentifier(e.getKey()), e.getValue()));
                 }
-                return  rrr;
+                return rrr;
             } catch (Exception ex) {
                 throw new RuntimeException(ex);
             }

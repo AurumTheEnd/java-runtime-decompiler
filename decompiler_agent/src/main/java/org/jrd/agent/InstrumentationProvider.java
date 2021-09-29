@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package org.jrd.agent;
 
 import java.lang.instrument.Instrumentation;
@@ -23,8 +18,8 @@ public class InstrumentationProvider {
     InstrumentationProvider(Instrumentation inst, Transformer transformer) {
         this.transformer = transformer;
         this.instrumentation = inst;
-    }    
-        
+    }
+
     public void setClassBody(String cname, byte[] nwBody) throws UnmodifiableClassException {
         Class clazz = findClass(cname);
         transformer.allowToSaveBytecode();
@@ -39,18 +34,16 @@ public class InstrumentationProvider {
     }
 
     private byte[] getClassBody(Class clazz) throws UnmodifiableClassException {
-        transformer.allowToSaveBytecode();
         byte[] result;
-        try {
-            transformer.allowToSaveBytecode();
-            instrumentation.retransformClasses(clazz);
-            String nameWithSlashes = clazz.getName().replace(".", "/");
-            result = transformer.getResult(nameWithSlashes);
-        } catch (RuntimeException ex) {
-            throw new RuntimeException(ex); //?? same exception?
-        }
+
+        transformer.allowToSaveBytecode();
+        instrumentation.retransformClasses(clazz);
+        String nameWithSlashes = clazz.getName().replace(".", "/");
+        result = transformer.getResult(nameWithSlashes);
+
         transformer.denyToSaveBytecode(); //should be in finally?
         transformer.resetLastValidResult();
+
         return result;
     }
 
@@ -60,7 +53,7 @@ public class InstrumentationProvider {
      *
      * @param className name of class we want to get
      * @return bytecode of given class
-     * @throws UnmodifiableClassException if the class can not be retransformed
+     * @throws UnmodifiableClassException if the class can not be re-transformed
      */
     public byte[] findClassBody(String className) throws UnmodifiableClassException {
         return getClassBody(findClass(className));
@@ -69,9 +62,9 @@ public class InstrumentationProvider {
 
     private Class findClass(String className) {
         Class[] classes = instrumentation.getAllLoadedClasses();
-        for (Class classe : classes) {
-            if (classe.getName().equals(className)) {
-                return classe;
+        for (Class clazz : classes) {
+            if (clazz.getName().equals(className)) {
+                return clazz;
             }
         }
         throw new RuntimeException("Class " + className + " not found in loaded classes.");

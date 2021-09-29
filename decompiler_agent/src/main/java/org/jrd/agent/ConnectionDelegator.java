@@ -5,17 +5,15 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-public class ConnectionDelegator extends Thread{
+public final class ConnectionDelegator extends Thread {
 
     private static ConnectionDelegator connectionDelegator;
     public static final int DEFAULT_PORT = 5395;
-    public static final String DEFAULT_ADRESS = "localhost";
+    public static final String DEFAULT_ADDRESS = "localhost";
 
     private ServerSocket theServerSocket;
     private InstrumentationProvider provider;
     private static boolean running;
-    private static String addressGiven;
-    private static Integer portGiven;
 
     private ConnectionDelegator(InstrumentationProvider provider, ServerSocket serverSocket) {
         this.provider = provider;
@@ -36,20 +34,18 @@ public class ConnectionDelegator extends Thread{
      */
     public static synchronized boolean initialize(String hostname, Integer port,
                                                   InstrumentationProvider provider) {
-        ConnectionDelegator.addressGiven = hostname;
-        portGiven = port;
         ServerSocket initServerSocket = null;
         try {
             if (port == null) {
                 port = DEFAULT_PORT;
             }
             if (hostname == null) {
-                hostname = DEFAULT_ADRESS;
+                hostname = DEFAULT_ADDRESS;
             }
             initServerSocket = new ServerSocket();
             initServerSocket.bind(new InetSocketAddress(hostname, port));
         } catch (IOException e) {
-            OutputControllerAgent.getLogger().log( new RuntimeException("Exception occurred when opening the socket: ", e));
+            AgentLogger.getLogger().log(new RuntimeException("Exception occurred when opening the socket: ", e));
             return false;
         }
 
@@ -64,7 +60,8 @@ public class ConnectionDelegator extends Thread{
      */
     @Override
     public void run() {
-        running = true;
+        setRunning(true);
+
         while (running) {
             if (theServerSocket.isClosed()) {
                 return;
@@ -74,7 +71,7 @@ public class ConnectionDelegator extends Thread{
                 clientSocket = theServerSocket.accept();
             } catch (IOException e) {
                 if (!theServerSocket.isClosed()) {
-                    OutputControllerAgent.getLogger().log(new RuntimeException("The server socket is closed, killing the thread.", e));
+                    AgentLogger.getLogger().log(new RuntimeException("The server socket is closed, killing the thread.", e));
                 }
                 return;
             }
@@ -82,23 +79,26 @@ public class ConnectionDelegator extends Thread{
                     new AgentActionWorker(clientSocket, provider)).start();
         }
 
-        if (!theServerSocket.isClosed()){
+        if (!theServerSocket.isClosed()) {
             try {
                 theServerSocket.close();
             } catch (IOException e) {
-                OutputControllerAgent.getLogger().log(new RuntimeException("Error when closing the server socket", e));
+                AgentLogger.getLogger().log(new RuntimeException("Error when closing the server socket", e));
             }
         }
+    }
+
+    private static synchronized void setRunning(boolean isRunning) {
+        running = isRunning;
     }
 
     /**
      * Closes server socket
      * Already connected clients can finish their work but no new clients can connect.
      */
-    public static void gracefulShutdown(){
-        if (/*Agent was created by client*/true){
-            running = false;
+    public static void gracefulShutdown() {
+        if (/*Agent was created by client*/true) {
+            setRunning(false);
         }
     }
-
 }

@@ -2,17 +2,13 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.OpenOption;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.Map;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class JcoderDecompilerWrapper {
 
@@ -29,7 +25,8 @@ public class JcoderDecompilerWrapper {
             }
             String data = baos.toString(utf8);
             if (data.isEmpty()) {
-                return "No output, unpatched asmtools? See https://github.com/openjdk/asmtools/pull/13/commits/6f8e5b532aa0cdb032ede0854de30da16cf2bb5c";
+                return "No output, unpatched asmtools? See " +
+                        "https://github.com/openjdk/asmtools/pull/13/commits/6f8e5b532aa0cdb032ede0854de30da16cf2bb5c";
             }
             return data;
         } catch (Exception e) {
@@ -39,18 +36,7 @@ public class JcoderDecompilerWrapper {
     }
 
     private void log(Object logger, String message) {
-        if (logger == null || message == null) {
-            //return;
-        }
-        try {
-            //Currently plugins do not ahve access to parent classloader
-            //Method logingMethod = logger.getClass().getMethod("addMessage", java.util.logging.Level.class, String.class);
-            //logingMethod.invoke(logger, message);
-            System.err.println(message);
-        } catch (Exception ex) {
-            System.err.println("Jcoder have logger, but that logger do not have correct addMessage java.util.logging.Level String method or call failed");
-            ex.printStackTrace();
-        }
+        System.err.println(message);
     }
 
     public Map<String, byte[]> compile(Map<String, String> src, String[] options, Object maybeLogger) throws Exception {
@@ -64,7 +50,6 @@ public class JcoderDecompilerWrapper {
         File target = new File(parentDir, "bin");
         target.mkdir();
         log(maybeLogger, "entering into " + parentDir.getAbsolutePath());
-        org.openjdk.asmtools.jcoder.Main jcoder = new org.openjdk.asmtools.jcoder.Main(System.err, "jcoder");
         List<String> tmpSources = new ArrayList<>(src.size());
         for (Map.Entry<String, String> fileToCompile : src.entrySet()) {
             File nw = new File(srcs, fileToCompile.getKey() + ".java");
@@ -76,14 +61,17 @@ public class JcoderDecompilerWrapper {
         tmpSources.add(0, "-d");
         String[] opts = tmpSources.toArray(new String[0]);
         log(maybeLogger, "jcoder " + Arrays.toString(opts));
+
+        org.openjdk.asmtools.jcoder.Main jcoder = new org.openjdk.asmtools.jcoder.Main(System.err, "jcoder");
         jcoder.compile(opts);
         Map<String, byte[]> r = new HashMap();
-        Files.walk(target.toPath()).filter(Files::isRegularFile).forEach((k) -> {
+        Files.walk(target.toPath()).filter(Files::isRegularFile).forEach(k -> {
             try {
-                String futureFullyQualifiedNiceName = k.toString();
-                futureFullyQualifiedNiceName = futureFullyQualifiedNiceName.replace(target + File.separator, "");
-                futureFullyQualifiedNiceName = futureFullyQualifiedNiceName.replace(File.separator, ".");
-                futureFullyQualifiedNiceName = futureFullyQualifiedNiceName.replaceAll("\\.class$", "");
+                String futureFullyQualifiedNiceName = k
+                        .toString()
+                        .replace(target + File.separator, "")
+                        .replace(File.separator, ".")
+                        .replaceAll("\\.class$", "");
                 r.put(futureFullyQualifiedNiceName, Files.readAllBytes(k));
             } catch (IOException ex) {
                 ex.printStackTrace();
